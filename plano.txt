@@ -1,0 +1,50 @@
+Pessoa A
+Funções de Geração Aleatória
+
+generateNumberOfRows :: IO Int
+Gera um número aleatório de fileiras (≥ 2).
+generateOddMatches :: IO Int
+Gera uma quantidade aleatória de palitos ímpares entre 1 e 7.
+Estrutura de Dados e Funções Básicas
+
+Definição do tipo de estado do jogo (em Utils.hs), por exemplo:
+haskell
+Copiar
+type EstadoDoJogo = [Int]
+removeMatches :: EstadoDoJogo -> Int -> Int -> EstadoDoJogo
+Remove uma quantidade de palitos (terceiro parâmetro) de uma fileira (segundo parâmetro) no estado (primeiro parâmetro).
+Modo Fácil (IA Aleatória)
+
+easyAI :: EstadoDoJogo -> IO (Int, Int)
+Decide, de forma aleatória, qual fileira e quantos palitos remover.
+Testes e Depuração (Parcial)
+
+
+Pessoa B
+Integração da Geração Aleatória e Configuração Inicial
+
+Receber as funções generateNumberOfRows e generateOddMatches de Pessoa A e compor em Main.hs algo como geraEstadoInicial :: IO EstadoDoJogo.
+Documentar no README.md como a inicialização do jogo funciona.
+Lógica de Jogo (Turnos e Verificação do Fim)
+
+checkEndGame :: EstadoDoJogo -> Bool
+Verifica se o jogo acabou (por exemplo, se todas as fileiras estão zeradas).
+
+turnLoop :: EstadoDoJogo -> IO ()
+Controla a alternância de jogadas entre usuário e computador, encerrando quando checkEndGame retornar True.
+Modo Difícil (IA Baseada em Soma Binária)
+
+difficultAI :: EstadoDoJogo -> (Int, Int)
+Calcula a jogada ideal para manter a soma dos bits (Nim-sum) igual a zero. (Pode usar IO ou não, já que é determinística.)
+Funções de Entrada de Dados do Usuário
+
+readUserInput :: IO (Int, Int)
+Lê da linha de comando qual fileira e quantos palitos remover (validando se for preciso).
+Testes e Depuração (Parcial)
+
+printRows :: EstadoDoJogo -> IO ()
+Exibe quantos palitos há em cada fileira de forma amigável.
+
+
+
+

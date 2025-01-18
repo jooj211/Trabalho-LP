@@ -1,0 +1,42 @@
+cabal-version:      3.4
+name:               Trabalho-LP
+version:            0.1.0.0
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             diasj21
+maintainer:         jonatas.dias@estudante.ufjf.br
+category:           Game
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:  MyLib
+    build-depends:    base ^>=4.17.2.1,
+                      random >=1.2
+    hs-source-dirs:   src
+    default-language: Haskell2010
+
+executable Trabalho-LP
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.17.2.1,
+        random >=1.2,
+        Trabalho-LP
+    hs-source-dirs:   app
+    default-language: Haskell2010
+
+test-suite Trabalho-LP-test
+    import:           warnings
+    default-language: Haskell2010
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+    build-depends:
+        base ^>=4.17.2.1,
+        random >=1.2,
+        Trabalho-LP

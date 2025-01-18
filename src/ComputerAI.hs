@@ -1,1 +1,0 @@
--- Computer AI logic for Jogo dos Palitinhos

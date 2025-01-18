@@ -1,1 +1,0 @@
--- Utility functions for Jogo dos Palitinhos

@@ -1,2 +1,0 @@
--- Main module for Jogo dos Palitinhos
--- Implement game logic here
