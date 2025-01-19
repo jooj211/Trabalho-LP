@@ -49,7 +49,7 @@ initialState n = replicateM n generateRandomMatches
 gameLoop :: [[Int]] -> Int -> Int -> IO ()
 gameLoop rowsList playerTurn gameMode = do
     if endGame rowsList
-        then putStrLn $ if playerTurn == 1 then "Você perdeu!" else "Você venceu!"
+        then putStrLn $ if playerTurn == 1 then "VOCÊ PERDEU!" else "VOCÊ VENCEU!"
         else do
             putStrLn "Estado atual do jogo:"
             printGame rowsList
@@ -58,7 +58,7 @@ gameLoop rowsList playerTurn gameMode = do
             updatedRows <- makeChoice rowsList playerTurn gameMode
 
             -- Alterna para o próximo turno (se for 1 vai para -1 e vice-versa)
-            gameLoop updatedRows (if playerTurn == 1 then -1 else 1) gameMode
+            gameLoop updatedRows (if playerTurn == 1 then (-1) else 1) gameMode
 
 ----------------------------------------------------------------------------
 -- Escopo principal do jogo
@@ -69,10 +69,10 @@ main = do
   numberOfRows <- generateRandomRows
 
   putStrLn "BOAS-VINDAS AO JOGO DOS PALITINHOS!"
-  choice <- menu
+  menuOption <- menu
 
-  putStrLn $ "Você escolheu a opção: " ++ show choice
-  case choice of
+  putStrLn $ "Você escolheu a opção: " ++ show menuOption
+  case menuOption of
     0 -> putStrLn "Saindo do jogo. Até logo!"
     1 -> do
         putStrLn "Iniciando o nível Fácil..."

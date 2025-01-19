@@ -26,31 +26,24 @@ makeChoice rowsList playerTurn gameMode = do
     if playerTurn == -1
         then do
             putStrLn "Vez do computador..."
-            -- Chamada para o computador fazer a jogada
+            
             updatedRows <- computerMove rowsList gameMode
+
             return updatedRows    
         else do
             putStrLn "Sua vez de jogar..."
 
-            -- 1) Validar a escolha da linha
             chosenRow <- getValidRow rowsList
-
-            -- 2) Contar quantos `1`s existem nessa linha
             let availableMatches = length (filter (== 1) (rowsList !! (chosenRow - 1)))
-
-            -- 3) Validar o número de palitos a serem retirados
             chosenM <- getValidMatches availableMatches
-
-            -- 4) Remover os palitos e possivelmente deletar a linha se ela estiver vazia
             let updatedRows = removeMatches rowsList chosenRow chosenM
 
-            -- Alterna o turno
             return updatedRows
 
 
 ----------------------------------------------------------------------------
--- Ask the user for a valid row
---   rowNumber here is the total number of rows that can be chosen
+-- Recebe e valida fileira escolhida pelo usuário
+--   rowNumber = número total de fileiras que podem ser escolhidas
 ----------------------------------------------------------------------------
 getValidRow :: [[Int]] -> IO Int
 getValidRow rowsList = do
@@ -69,7 +62,7 @@ getValidRow rowsList = do
             getValidRow rowsList
 
 ----------------------------------------------------------------------------
--- Ask the user for a valid number of matches to remove
+-- Recebe e valida número de palitinhos removidos pelo usuário
 ----------------------------------------------------------------------------
 getValidMatches :: Int -> IO Int
 getValidMatches matchsticks = do
