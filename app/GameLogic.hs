@@ -23,6 +23,7 @@ import Text.Read (readMaybe)
 -------------------------------------------------------------------------------
 makeChoice :: [[Int]] -> Int -> Int -> IO [[Int]]
 makeChoice rowsList playerTurn gameMode = do
+    printDivisibleBy8 rowsList
     if playerTurn == -1
         then do
             putStrLn "Vez do computador..."

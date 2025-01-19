@@ -13,11 +13,19 @@ module Utils
       generateRandomMatches,
       generateRandomNumber,
       generateRandomRows,
-      getAvailableRows
+      getAvailableRows,
+      processRowToBinary,
+      decimalToBinary,
+      binaryToDecimal,
+      transposeAndSum,
+      normalizeRows,
+      findBestOption,
+      checkOdd,
+      printDivisibleBy8,
+      findMaxMatches
     ) where
-
-import System.Random (mkStdGen, randomR, randomRIO)
-
+import System.Random (randomRIO)
+import Data.List (maximumBy)
 ----------------------------------------------------------------------------
 -- Gera números aleatórios
 ----------------------------------------------------------------------------
@@ -72,6 +80,22 @@ getAvailableRows :: [[Int]] -> Int
 getAvailableRows rowsList = length rowsList
 
 ----------------------------------------------------------------------------
+-- Calcula o total de palitos na matriz (soma decimal de todos os '1')
+----------------------------------------------------------------------------
+calcTotalMatches :: [[Int]] -> Int
+calcTotalMatches rowsList = sum (map sum rowsList)
+
+----------------------------------------------------------------------------
+-- Imprime se o total de palitos é divisível por 8
+----------------------------------------------------------------------------
+printDivisibleBy8 :: [[Int]] -> IO ()
+printDivisibleBy8 rowsList = do
+    let total = calcTotalMatches rowsList
+    if total `mod` 8 == 0
+        then putStrLn $ "O total de " ++ show total ++ " palitos é divisível por 8. (Posição perdedora)"
+        else putStrLn $ "O total de " ++ show total ++ " palitos não é divisível por 8. (Posição vencedora)"
+
+----------------------------------------------------------------------------
 -- Remove os palitos de uma fileira (chosenRow) and atualiza rowsList
 ----------------------------------------------------------------------------
 removeMatches :: [[Int]] -> Int -> Int -> [[Int]]
@@ -109,3 +133,69 @@ replaceAt idx newRow rows =
 deleteRowAt :: Int -> [[Int]] -> [[Int]]
 deleteRowAt idx rows =
     take idx rows ++ drop (idx + 1) rows
+
+----------------------------------------------------------------------------
+-- Converte um número decimal para sua representação binária
+----------------------------------------------------------------------------
+decimalToBinary :: Int -> [Int]
+decimalToBinary 0 = [0]
+decimalToBinary n = reverse (go n)
+  where
+    go 0 = []
+    go n = let (q, r) = n `divMod` 2 in r : go q
+
+----------------------------------------------------------------------------
+-- Converte um número binário (lista) para decimal (inteiro)
+----------------------------------------------------------------------------
+binaryToDecimal :: [Int] -> Int
+binaryToDecimal = foldl (\acc x -> acc * 2 + x) 0
+
+----------------------------------------------------------------------------
+-- Percorre uma fileira e retorna o número binário de palitinhos
+----------------------------------------------------------------------------
+processRowToBinary :: [Int] -> IO [Int]
+processRowToBinary row = do
+
+    let availableMatches = length (filter (== 1) row)
+    let binaryMatches = decimalToBinary availableMatches
+
+    return binaryMatches
+
+----------------------------------------------------------------------------
+-- Completa lista de números binários, acrescentando 0s à esquerda
+----------------------------------------------------------------------------
+normalizeRows :: [[Int]] -> [[Int]]
+normalizeRows rowsList = map padWithZeros rowsList
+  where
+    padWithZeros row = replicate (3 - length row) 0 ++ row
+
+----------------------------------------------------------------------------
+-- Percorre a lista transposta e retorna os algarismos da soma decimal
+----------------------------------------------------------------------------
+transposeAndSum :: [[Int]] -> [Int]
+transposeAndSum rowsList = map sum (transpose rowsList)
+  where
+    transpose [] = []
+    transpose ([] : _) = []
+    transpose xs = map head xs : transpose (map tail xs)
+
+----------------------------------------------------------------------------
+-- Checa se cada algarismo é ímpar ou não
+----------------------------------------------------------------------------
+checkOdd :: [Int] -> [Int]
+checkOdd = map (\x -> if odd x then 1 else 0)
+
+findBestOption :: [[Int]] -> [Int] -> (Int, Bool)
+findBestOption binaryRowsList changeBitsRef = go binaryRowsList 0
+  where
+    go [] _ = (-1, False)                    -- Caso não encontre nenhuma lista correspondente, retorna (-1, False)
+    go (x:xs) idx
+      | match x changeBitsRef = (idx, True)  -- Se encontrar uma lista correspondente, retorna o índice e True
+      | otherwise = go xs (idx + 1)          -- Continua a busca nas próximas listas
+
+    -- Função que verifica se os dígitos 1 de x coincidem com os dígitos 1 de changeBitsRef
+    match x changeBitsRef = all (\(a, b) -> b == 0 || a == 1) (zip x changeBitsRef)
+
+
+findMaxMatches :: [[Int]] -> (Int, Int)
+findMaxMatches rows = maximumBy (\(_, a) (_, b) -> compare a b) (zip [1..] (map (sum . filter (==1)) rows))

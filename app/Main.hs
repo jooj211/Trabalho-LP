@@ -82,7 +82,8 @@ main = do
         gameLoop rowsList 1 1
     2 -> do
         putStrLn "Iniciando o nível Difícil..."
-        rowsList <- initialState numberOfRows
+        --rowsList <- initialState numberOfRows
+        let rowsList = [[1,1,1,1,1,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,0,0]]
         putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
         putStrLn ""
         gameLoop rowsList (-1) (2)
