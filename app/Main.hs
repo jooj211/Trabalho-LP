@@ -11,15 +11,12 @@ import Text.Read
 import Control.Monad (replicateM)
 import Utils
 
-
-
 -- Function to generate a random number between 1 and 10
 generateRandomNumber :: Int -> Int -> IO Int --
 generateRandomNumber minNumber maxNumber = randomRIO(minNumber, maxNumber)
 
 generateRandomRows :: IO Int -- Gera um número aleatório entre 2 e 1000
 generateRandomRows = generateRandomNumber 2 10
-
 
 generateRandomMatches :: IO [Int]
 generateRandomMatches = do
@@ -39,15 +36,27 @@ menu = do
   case readMaybe gameLevel :: Maybe Int of
     Just n | n `elem` [0, 1, 2] -> return n
     _ -> do
-      putStrLn "Entrada inválida! Tente novamente."
-      menu
-
+        putStrLn "Entrada inválida! Tente novamente."
+        menu
 
 -- estadoInicial :: Número de Linhas -> Primeiro jogador -> Conjunto de filas
 initialState :: Int -> IO [[Int]]
 initialState n = replicateM n generateRandomMatches
-    
--- loopJogo :: [[Int]] -> Int -> [[Int]]
+
+-- gameLoop :: [[Int]] -> Int -> IO ()
+gameLoop :: [[Int]] -> Int -> IO ()
+gameLoop rowsList playerTurn = do
+    if endGame rowsList
+        then putStrLn $ if playerTurn == 1 then "Você perdeu!" else "Você venceu!"
+        else do
+            putStrLn "Estado atual do jogo:"
+            printGame rowsList
+
+            chosenRow <- getValidRow rowsList -- Pass only rowsList
+            let availableMatches = length (filter (== 1) (rowsList !! (chosenRow - 1)))
+            chosenM <- getValidMatches availableMatches
+            let updatedRows = removeMatches rowsList chosenRow chosenM
+            gameLoop updatedRows (if playerTurn == 1 then -1 else 1)
 
 
 -- Escopo principal do programa
@@ -61,13 +70,16 @@ main = do
   putStrLn $ "Você escolheu a opção: " ++ show choice
   case choice of
     0 -> putStrLn "Saindo do jogo. Até logo!"
-    1 -> putStrLn "Iniciando o nível Fácil..."
-    2 -> putStrLn "Iniciando o nível Difícil..."
+    1 -> do
+        putStrLn "Iniciando o nível Fácil..."
+        rowsList <- initialState numberOfRows
+        putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
+        putStrLn ""
+        gameLoop rowsList 1
+    2 -> do
+        putStrLn "Iniciando o nível Difícil..."
+        rowsList <- initialState numberOfRows
+        putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
+        putStrLn ""
+        gameLoop rowsList 1
     _ -> return ()
-
-  rowsList <- initialState numberOfRows
-  
-  putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
-  putStrLn $ ""
-  printGame rowsList
-
