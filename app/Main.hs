@@ -1,28 +1,19 @@
-{-
-TODO:
-- Gerar um número aleatório entre 2 e 1000
-- Criar um vetor de vetores de tamanho igual ao número gerado
-- Preencher cada vetor com número aleatório de palitos entre [1,3,5,7]
+----------------------------------------------------------------------------
+----- Trabalho Prático 1 - Linguagens de Programação (DCC019 - 2024.2) -----
+----------------------------- Desenvolvido por: ----------------------------
+--               Jonatas Dias Machado Costa (202165077AC)
+--              Maria Luísa Riolino Guimarães (202165563C)
+----------------------------------------------------------------------------
 
--}
-
-import System.Random (mkStdGen, randomR, randomRIO)
-import Text.Read
+import Text.Read 
 import Control.Monad (replicateM)
+
 import Utils
+import GameLogic
 
--- Function to generate a random number between 1 and 10
-generateRandomNumber :: Int -> Int -> IO Int --
-generateRandomNumber minNumber maxNumber = randomRIO(minNumber, maxNumber)
-
-generateRandomRows :: IO Int -- Gera um número aleatório entre 2 e 1000
-generateRandomRows = generateRandomNumber 2 10
-
-generateRandomMatches :: IO [Int]
-generateRandomMatches = do
-  num <- generateRandomNumber 1 4 -- Garante que `num * 2 - 1` esteja no intervalo [1, 7]
-  let n = num * 2 - 1
-  return $ replicate n 1 ++ replicate (7 - n) 0
+----------------------------------------------------------------------------
+-- Menu inicial do jogo
+----------------------------------------------------------------------------
 
 menu :: IO Int
 menu = do
@@ -39,27 +30,40 @@ menu = do
         putStrLn "Entrada inválida! Tente novamente."
         menu
 
--- estadoInicial :: Número de Linhas -> Primeiro jogador -> Conjunto de filas
+----------------------------------------------------------------------------
+-- Gera estado inicial do jogo (número aleatório de palitos por linha)
+--   n = número de linhas
+----------------------------------------------------------------------------
+
 initialState :: Int -> IO [[Int]]
 initialState n = replicateM n generateRandomMatches
 
--- gameLoop :: [[Int]] -> Int -> IO ()
-gameLoop :: [[Int]] -> Int -> IO ()
-gameLoop rowsList playerTurn = do
+----------------------------------------------------------------------------
+-- Loop do jogo e verificação de vitória/derrota
+
+--   rowsList = lista com as fileiras de palitinhos restantes
+--   playerTurn = indica de quem é o turno [1 = usuário, -1 = computador]
+--   gameMode = indica o modo do jogo [1 = fácil, 2 = difícil]
+----------------------------------------------------------------------------
+
+gameLoop :: [[Int]] -> Int -> Int -> IO ()
+gameLoop rowsList playerTurn gameMode = do
     if endGame rowsList
         then putStrLn $ if playerTurn == 1 then "Você perdeu!" else "Você venceu!"
         else do
             putStrLn "Estado atual do jogo:"
             printGame rowsList
 
-            chosenRow <- getValidRow rowsList -- Pass only rowsList
-            let availableMatches = length (filter (== 1) (rowsList !! (chosenRow - 1)))
-            chosenM <- getValidMatches availableMatches
-            let updatedRows = removeMatches rowsList chosenRow chosenM
-            gameLoop updatedRows (if playerTurn == 1 then -1 else 1)
+            -- Chama a função makeChoice, que trata tanto a jogada do computador quanto a do jogador
+            updatedRows <- makeChoice rowsList playerTurn gameMode
 
+            -- Alterna para o próximo turno (se for 1 vai para -1 e vice-versa)
+            gameLoop updatedRows (if playerTurn == 1 then -1 else 1) gameMode
 
--- Escopo principal do programa
+----------------------------------------------------------------------------
+-- Escopo principal do jogo
+----------------------------------------------------------------------------
+
 main :: IO ()
 main = do
   numberOfRows <- generateRandomRows
@@ -75,11 +79,11 @@ main = do
         rowsList <- initialState numberOfRows
         putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
         putStrLn ""
-        gameLoop rowsList 1
+        gameLoop rowsList 1 1
     2 -> do
         putStrLn "Iniciando o nível Difícil..."
         rowsList <- initialState numberOfRows
         putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
         putStrLn ""
-        gameLoop rowsList 1
+        gameLoop rowsList (-1) (2)
     _ -> return ()

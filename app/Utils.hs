@@ -1,37 +1,53 @@
+----------------------------------------------------------------------------
+----- Trabalho Prático 1 - Linguagens de Programação (DCC019 - 2024.2) -----
+----------------------------- Desenvolvido por: ----------------------------
+--               Jonatas Dias Machado Costa (202165077AC)
+--              Maria Luísa Riolino Guimarães (202165563C)
+----------------------------------------------------------------------------
+
 module Utils
     ( emptyRow,
       endGame,
       printGame,
-      makeChoice,
-      getValidRow,
-      getValidMatches,
-      removeMatches
+      removeMatches,
+      generateRandomMatches,
+      generateRandomNumber,
+      generateRandomRows,
+      getAvailableRows
     ) where
 
-import Text.Read (readMaybe)
+import System.Random (mkStdGen, randomR, randomRIO)
 
 ----------------------------------------------------------------------------
--- Utility functions for Jogo dos Palitinhos
+-- Gera números aleatórios
 ----------------------------------------------------------------------------
 
--- Indica a vez de jogar (1 = jogador, -1 = computador)
-vez :: Int
-vez = 1
+generateRandomNumber :: Int -> Int -> IO Int --
+generateRandomNumber minNumber maxNumber = randomRIO(minNumber, maxNumber)
+
+generateRandomRows :: IO Int
+generateRandomRows = generateRandomNumber 2 10
+
+generateRandomMatches :: IO [Int]
+generateRandomMatches = do
+  num <- generateRandomNumber 1 4
+  let n = num * 2 - 1
+  return $ replicate n 1 ++ replicate (7 - n) 0
 
 ----------------------------------------------------------------------------
--- Check if a row is empty (all zeros)
+-- Checa se a fila está vazia (contém apenas 0s)
 ----------------------------------------------------------------------------
 emptyRow :: [Int] -> Bool
 emptyRow row = all (== 0) row
 
 ----------------------------------------------------------------------------
--- Check if there are no rows left -> end of game
+-- Checa se não há filas restantes -> fim de jogo
 ----------------------------------------------------------------------------
 endGame :: [[Int]] -> Bool
 endGame rowsList = null rowsList
 
 ----------------------------------------------------------------------------
--- Print the game: each `1` is shown as "|"
+-- Imprime o jogo: cada `1` na lista é representado por "|" (palitinho)
 ----------------------------------------------------------------------------
 printGame :: [[Int]] -> IO ()
 printGame rowsList =
@@ -49,73 +65,14 @@ printGame rowsList =
         rowsList
 
 ----------------------------------------------------------------------------
--- Make a choice: either the computer or the player chooses row and matches
+-- Retorna o número de linhas disponíveis
 ----------------------------------------------------------------------------
-makeChoice :: [[Int]] -> Int -> Int -> Int -> IO [[Int]]
-makeChoice rowsList rowNumber matchsticks playerTurn = do
-    if playerTurn == 0
-        then do
-            putStrLn "Vez do computador..."
-            -- TODO: Implement computer logic (getComputerChoice, etc.)
-            return rowsList -- Temporary placeholder
-        else do
-            putStrLn "Sua vez de jogar..."
 
-            -- 1) Validate the row choice
-            chosenRow <- getValidRow rowsList
-
-            -- 2) Count how many `1`s are in that row
-            let availableMatches = length (filter (== 1) (rowsList !! (chosenRow - 1)))
-
-            -- 3) Validate the number of matches to remove
-            chosenM <- getValidMatches availableMatches
-
-            -- 4) Remove matches and possibly delete the row if it's empty
-            let updatedRows = removeMatches rowsList chosenRow chosenM
-
-            return updatedRows
+getAvailableRows :: [[Int]] -> Int
+getAvailableRows rowsList = length rowsList
 
 ----------------------------------------------------------------------------
--- Ask the user for a valid row
---   rowNumber here is the total number of rows that can be chosen
-----------------------------------------------------------------------------
-getValidRow :: [[Int]] -> IO Int
-getValidRow rowsList = do
-    let rowNumber = length rowsList
-    putStrLn $ "Escolha uma linha (1 a " ++ show rowNumber ++ "):"
-    input <- getLine
-    case readMaybe input of
-        Just r ->
-            if r `elem` [1 .. rowNumber]
-                then return r
-                else do
-                    putStrLn "Linha inválida! Tente novamente."
-                    getValidRow rowsList
-        Nothing -> do
-            putStrLn "Entrada inválida! Tente novamente."
-            getValidRow rowsList
-
-
-----------------------------------------------------------------------------
--- Ask the user for a valid number of matches to remove
-----------------------------------------------------------------------------
-getValidMatches :: Int -> IO Int
-getValidMatches matchsticks = do
-    putStrLn $ "Escolha o número de palitos (1 a " ++ show matchsticks ++ "):"
-    input <- getLine
-    case readMaybe input of
-        Nothing -> do
-            putStrLn "Valor inválido! Tente novamente."
-            getValidMatches matchsticks
-        Just m ->
-            if m `elem` [1 .. matchsticks]
-                then return m
-                else do
-                    putStrLn "Quantidade fora do intervalo. Tente novamente."
-                    getValidMatches matchsticks
-
-----------------------------------------------------------------------------
--- Remove matches from a row (chosenRow) and update the rowsList accordingly
+-- Remove os palitos de uma fileira (chosenRow) and atualiza rowsList
 ----------------------------------------------------------------------------
 removeMatches :: [[Int]] -> Int -> Int -> [[Int]]
 removeMatches rowsList chosenRow m =
@@ -128,7 +85,7 @@ removeMatches rowsList chosenRow m =
         else updatedRows
 
 ----------------------------------------------------------------------------
--- Remove the last 'm' matches (i.e., convert up to m of the '1's to '0's)
+-- Remove os últimos 'm' palitos (i.e., altera m '1's para '0's)
 ----------------------------------------------------------------------------
 removeMatchesFromRow :: [Int] -> Int -> [Int]
 removeMatchesFromRow row m = reverse $ go m (reverse row)
@@ -140,14 +97,14 @@ removeMatchesFromRow row m = reverse $ go m (reverse row)
             | otherwise = x : go c xs
 
 ----------------------------------------------------------------------------
--- Helper: replace a row at the specified index
+-- Substitui fileira em um índice especificado (idx)
 ----------------------------------------------------------------------------
 replaceAt :: Int -> [Int] -> [[Int]] -> [[Int]]
 replaceAt idx newRow rows =
     take idx rows ++ [newRow] ++ drop (idx + 1) rows
 
 ----------------------------------------------------------------------------
--- Helper: delete a row at the specified index
+-- Deleta fileira em um índice especificado (idx)
 ----------------------------------------------------------------------------
 deleteRowAt :: Int -> [[Int]] -> [[Int]]
 deleteRowAt idx rows =
