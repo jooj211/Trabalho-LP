@@ -22,9 +22,9 @@ menu = do
   putStrLn "[1] Fácil"
   putStrLn "[2] Difícil"
 
-  gameLevel <- getLine
+  gameMode <- getLine
 
-  case readMaybe gameLevel :: Maybe Int of
+  case readMaybe gameMode :: Maybe Int of
     Just n | n `elem` [0, 1, 2] -> return n
     _ -> do
         putStrLn "Entrada inválida! Tente novamente."
@@ -82,8 +82,7 @@ main = do
         gameLoop rowsList 1 1
     2 -> do
         putStrLn "Iniciando o nível Difícil..."
-        --rowsList <- initialState numberOfRows
-        let rowsList = [[1,1,1,1,1,0,0],[1,0,0,0,0,0,0],[1,1,1,1,1,0,0]]
+        rowsList <- initialState numberOfRows
         putStrLn $ "Número de linhas geradas = " ++ show numberOfRows
         putStrLn ""
         gameLoop rowsList (-1) (2)

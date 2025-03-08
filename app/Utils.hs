@@ -30,7 +30,7 @@ import Data.List (maximumBy)
 -- Gera números aleatórios
 ----------------------------------------------------------------------------
 
-generateRandomNumber :: Int -> Int -> IO Int --
+generateRandomNumber :: Int -> Int -> IO Int 
 generateRandomNumber minNumber maxNumber = randomRIO(minNumber, maxNumber)
 
 generateRandomRows :: IO Int
