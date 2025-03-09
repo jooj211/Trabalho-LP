@@ -11,96 +11,173 @@
 ;; ---------------------------
 ;; Representação do Programa (Base de Conhecimento)
 ;; ---------------------------
-(define knowledge-base '()) ;; Lista global para armazenar as cláusulas
+(define knowledge-base '())
 
-;; Função para carregar o programa na base de conhecimento
 (define (load-program prog)
-  (set! knowledge-base prog))
+  (displayln (format "\n>>> Carregando programa na base de conhecimento <<<"))
+  (set! knowledge-base prog)
+  (displayln "Programa carregado com sucesso!")
+  (displayln "Cláusulas carregadas:")
+  (for ([clause prog])
+    (displayln (format "- ~a" clause))))
 
 ;; ---------------------------
-;; Função Principal: Avaliar Consulta
+;; Função Principal: Avaliar Consulta (Versão Corrigida)
 ;; ---------------------------
 (define (eval-query program query)
-  (load-program program) ;; Carregar base de conhecimento
-  (resolve-query query '())) ;; Resolver a consulta com ambiente inicial vazio
+  (displayln "\n=== INICIANDO AVALIAÇÃO DA CONSULTA ===")
+  (load-program program)
+  (displayln (format "\n>>> Iniciando resolução para consulta: ~a <<<" query))
+  (if (resolve-query query '()) #'#t #'#f)) ; Retorna booleano
 
 ;; ---------------------------
-;; Resolver a Consulta
+;; Resolver a Consulta (Atualizada)
 ;; ---------------------------
 (define (resolve-query query env)
-  (displayln (format "Consultando: ~a com ambiente: ~a" query env)) ;; Log de depuração
+  (displayln (format "Consultando: ~a com ambiente: ~a" query env))
   (cond
-    [(null? knowledge-base) 'fail] ;; Se não há regras, falha
-    [else (search-rules query env knowledge-base)])) ;; Buscar regras compatíveis
+    [(null? knowledge-base) #f] 
+    [else 
+     (let ([result (search-rules query env knowledge-base)])
+       ;; Alterar para verificar result
+       (if result
+           #t 
+           #f))])) ; Só retorna #t se houver ambiente válido
+
 
 ;; ---------------------------
-;; Busca por Fatos e Regras
+;; Busca por Fatos e Regras (Atualizada)
 ;; ---------------------------
 (define (search-rules query env rules)
-  (displayln (format "Buscando regras para: ~a" query)) ;; Log de depuração
   (cond
-    [(null? rules) 'fail] ;; Se nenhuma regra se aplica, falha
+    [(null? rules) 
+     (displayln "!!! Nenhuma regra restante !!!")
+     #f]
     [else
      (let* ([rule (car rules)]
             [head (clause-head rule)]
             [body (clause-body rule)]
-            [unif (unify query head env)])
-       (displayln (format "Unificação tentativa: ~a com ~a, resultado: ~a" query head unif)) ;; Log de depuração
+            [unif (unify query head env)]) ; unify retorna #f ou ambiente
        (if unif
            (if (null? body)
-               'success ;; Se é um fato, sucesso imediato
-               (resolve-query-body body unif)) ;; Se é uma regra, resolver o corpo
-           (search-rules query env (cdr rules))))]))
-
-;; Função que resolve o corpo da regra
-(define (resolve-query-body body env)
-  (displayln (format "Resolvendo corpo: ~a com ambiente: ~a" body env)) ;; Log de depuração
-  (cond
-    [(null? body) 'success] ;; Se o corpo está vazio, sucesso imediato
-    [else
-     (let ([head (car body)])
-       (resolve-query head env))])) ;; Resolver cada parte do corpo da regra
+               unif ; Retorna ambiente se for fato
+               (let ([body-result (resolve-query-body body unif)])
+                 (if body-result 
+                     body-result ; Retorna ambiente se corpo OK
+                     (search-rules query env (cdr rules))))) ; Falha no corpo, próxima regra
+           (search-rules query env (cdr rules))))])) ; Falha na unificação, próxima regra
 
 ;; ---------------------------
-;; Unificação de Termos
+;; Resolução do Corpo da Regra (Atualizada)
+;; ---------------------------
+(define (resolve-query-body body env)
+  (cond
+    [(null? body) env] ; Sucesso retorna ambiente
+    [else
+     (let ([result (resolve-query (car body) env)])
+       (if result 
+           (resolve-query-body (cdr body) env) ; Continua se subgoal OK
+           #f))])) ; Falha se algum subgoal falhar
+
+;; ---------------------------
+;; Unificação de Termos (Modificado com mais logs)
 ;; ---------------------------
 (define (unify term1 term2 env)
-  (displayln (format "Tentando unificar: ~a com ~a" term1 term2)) ;; Log de depuração
+  (displayln (format "\n[UNIFICACAO] Comparando:"))
+  (displayln (format "Termo1: ~a" term1))
+  (displayln (format "Termo2: ~a" term2))
+  (displayln (format "Ambiente: ~a" env))
+  
   (cond
-    [(equal? term1 term2) env] ;; Se são iguais, sucesso
-    [(var? term1) (bind-variable term1 term2 env)] ;; Se é variável, tenta unificar
-    [(var? term2) (bind-variable term2 term1 env)]
-    [(and (functor? term1) (functor? term2) (equal? (functor-name term1) (functor-name term2)))
-     (unify-args (functor-args term1) (functor-args term2) env)]
-    [else #f])) ;; Falha se não puder unificar
+    [(equal? term1 term2)
+     (displayln "[SUCESSO] Termos idênticos")
+     env]
+    
+    [(var? term1)
+     (displayln (format "[VARIAVEL] Vinculando ~a = ~a" term1 term2))
+     (bind-variable term1 term2 env)]
+    
+    [(var? term2)
+     (displayln (format "[VARIAVEL] Vinculando ~a = ~a" term2 term1))
+     (bind-variable term2 term1 env)]
+    
+    [(and (functor? term1) (functor? term2))
+     (displayln "[FUNCTOR] Ambos termos são functores")
+     (if (equal? (functor-name term1) (functor-name term2))
+         (begin
+           (displayln (format "[FUNCTOR] Mesmo nome: ~a" (functor-name term1)))
+           (unify-args (functor-args term1) (functor-args term2) env))
+         (begin
+           (displayln (format "[FALHA] Nomes diferentes: ~a vs ~a" 
+                            (functor-name term1) (functor-name term2)))
+           #f))]
+    
+    [else
+     (displayln "[FALHA] Tipos incompatíveis para unificação")
+     #f]))
 
 ;; ---------------------------
-;; Unificação de Argumentos (para Functores)
+;; Unificação de Argumentos (Corrigido para improper lists)
 ;; ---------------------------
 (define (unify-args args1 args2 env)
-  (if (null? args1)
-      env
-      (let ([new-env (unify (car args1) (car args2) env)])
-        (if new-env
-            (unify-args (cdr args1) (cdr args2) new-env)
-            #f)))) ;; Falha se qualquer argumento falhar
+  (displayln (format "\nUnificando argumentos:"))
+  (displayln (format "Argumentos1: ~a" args1))
+  (displayln (format "Argumentos2: ~a" args2))
+  
+  (cond
+    ;; Caso base: ambos os argumentos são null (listas próprias)
+    [(and (null? args1) (null? args2))
+     (displayln "Todos argumentos processados com sucesso")
+     env]
+    
+    ;; Verifica se ambos são pares ou listas
+    [(and (pair? args1) (pair? args2))
+     (let ([arg1 (car args1)]
+           [arg2 (car args2)])
+       (displayln (format "\nUnificando par de argumentos:"))
+       (displayln (format "- Primeiro: ~a" arg1))
+       (displayln (format "- Segundo: ~a" arg2))
+       
+       (let ([new-env (unify arg1 arg2 env)])
+         (if new-env
+             (begin
+               (displayln "Par unificado com sucesso")
+               (unify-args (cdr args1) (cdr args2) new-env))
+             (begin
+               (displayln "!!! Falha na unificação de argumentos !!!")
+               #f))))]
+    
+    ;; Caso para improper lists (último elemento)
+    [(and (not (null? args1)) (not (null? args2)))
+     (displayln (format "\nUnificando último par de argumentos:"))
+     (displayln (format "- Primeiro: ~a" args1))
+     (displayln (format "- Segundo: ~a" args2))
+     (unify args1 args2 env)]
+    
+    ;; Número de argumentos diferente
+    [else
+     (displayln "!!! Número de argumentos incompatível !!!")
+     #f]))
 
 ;; ---------------------------
-;; Função para associar uma variável a um valor no ambiente
+;; Função para associar variável (Modificado com mais logs)
 ;; ---------------------------
 (define (bind-variable var value env)
-  (cons (cons var value) env))
+  (displayln (format "\nVinculando variável ~a a ~a" var value))
+  (displayln (format "Ambiente antes da vinculação: ~a" env))
+  (let ([new-env (cons (cons var value) env)])
+    (displayln (format "Novo ambiente: ~a" new-env))
+    new-env))
 
 ;; ---------------------------
-;; Predicados Auxiliares
+;; Predicados Auxiliares (Corrigido)
 ;; ---------------------------
-(define (var? x) (struct? x 'var))
-(define (functor? x) (struct? x 'functor))
-(define (clause-head c) (clause-head c))
-(define (clause-body c) (clause-body c))
+(require (prefix-in ast: dcc019/exercise/logic/ast)) ; Importar com prefixo
 
-;; Extrai o nome do functor
-(define (functor-name f) (functor-name f))
+(define (var? x) (ast:var? x))
+(define (functor? x) (ast:functor? x))
+(define (clause-head c) (ast:clause-head c)) ; Usar acessores do módulo ast
+(define (clause-body c) (ast:clause-body c))
 
-;; Extrai os argumentos do functor
-(define (functor-args f) (functor-args f))
+(define (functor-name f) (ast:functor-name f))
+(define (functor-args f) (ast:functor-args f))
