@@ -25,7 +25,7 @@
     (if result
         (begin
           (display "True") (newline)
-          (display-env result)) ; Exibe o ambiente de unificação
+          (display-env result) #'(void)) ; Exibe o ambiente de unificação
         (begin (display "False") (newline) #'(void)))))
 
 ;; ---------------------------
@@ -47,12 +47,12 @@
             [value (cdr binding)]
             [var-name (extract-name var)]
             [value-name (extract-name value)])
-       (display var-name) (display " = ") (display value-name) (newline)))
+       (display var-name) (display " = ") (display value-name)))
    env))
 
 (define (extract-name term)
   (cond
-    [(ast:var? term) (ast:var-name term)]  ; Se for variável, pega o nome
+    [(ast:var? term) (ast:var-name term)]   ; Se for variável, pega o nome
     [(ast:atom? term) (ast:atom-name term)] ; Se for átomo, pega o nome
     [else term])) ; Caso contrário, retorna o próprio valor
 
