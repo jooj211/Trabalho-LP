@@ -6,7 +6,6 @@
 #lang racket
 
 (require dcc019/exercise/logic/ast)
-(require dcc019/exercise/logic/lang/reader)
 
 (provide eval-query)
 
