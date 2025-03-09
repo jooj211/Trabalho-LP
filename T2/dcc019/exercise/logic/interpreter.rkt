@@ -6,6 +6,7 @@
 #lang racket
 
 (require dcc019/exercise/logic/ast)
+(require dcc019/exercise/logic/lang/reader)
 
 (provide eval-query)
 
@@ -82,7 +83,13 @@
 ;; ---------------------------
 ;; Predicados Auxiliares
 ;; ---------------------------
-(define (var? x) (struct? x var))
-(define (functor? x) (struct? x functor))
+(define (var? x) (struct? x 'var))
+(define (functor? x) (struct? x 'functor))
 (define (clause-head c) (clause-head c))
 (define (clause-body c) (clause-body c))
+
+;; Extrai o nome do functor
+(define (functor-name f) (functor-name f))
+
+;; Extrai os argumentos do functor
+(define (functor-args f) (functor-args f))
