@@ -15,16 +15,57 @@
 
 (define (load-program prog)
   (displayln "[DEBUG] Carregando programa na base de conhecimento...")
-  (set! knowledge-base prog))
+  (set! knowledge-base (if (list? prog) prog (list prog))))
 
 ;; ---------------------------
-;; Função auxiliar: converte uma consulta (que pode ser um improper list) em uma lista própria de goals
+;; Função auxiliar: converte uma consulta (que pode ser um improper list) em uma lista de goals
 ;; ---------------------------
 (define (goals->list q)
   (cond
     [(null? q) '()]
     [(pair? q) (cons (car q) (goals->list (cdr q)))]
     [else (list q)]))
+
+;; ---------------------------
+;; Funções de Freshening (Renomeação) para Cláusulas (regras)
+;; ---------------------------
+(define (rename-term term env)
+  (cond
+    [(ast:var? term)
+     (let ([binding (assoc term env)])
+       (if binding
+           (values (cdr binding) env)
+           (let ([new-var (ast:var (gensym (ast:var-name term)))])
+             (values new-var (cons (cons term new-var) env)))))]
+    [(ast:atom? term) (values term env)]
+    [(functor? term)
+     (let* ([name (functor-name term)]
+            [args (functor-args term)])
+       (call-with-values
+        (lambda () (rename-term-list args env))
+        (lambda (new-args new-env)
+          (values (ast:functor name new-args) new-env))))]
+    [else (values term env)]))
+
+(define (rename-term-list terms env)
+  (if (null? terms)
+      (values '() env)
+      (call-with-values
+       (lambda () (rename-term (car terms) env))
+       (lambda (new-term env1)
+         (call-with-values
+          (lambda () (rename-term-list (cdr terms) env1))
+          (lambda (new-terms env2)
+            (values (cons new-term new-terms) env2)))))))
+
+(define (rename-clause clause)
+  (call-with-values
+   (lambda () (rename-term (clause-head clause) '()))
+   (lambda (new-head env1)
+     (call-with-values
+      (lambda () (rename-term-list (clause-body clause) env1))
+      (lambda (new-body env2)
+        (ast:clause new-head new-body))))))
 
 ;; ---------------------------
 ;; Função Principal: Avaliar Consulta
@@ -41,33 +82,32 @@
     (if (null? results)
         (begin 
           (displayln "[DEBUG] Consulta falhou.")
-          (display "False\n\n")
+          (display "False\n")
           #'(void))
         (begin
           (displayln "[DEBUG] Consulta bem-sucedida, exibindo soluções...")
           (display "True\n\n")
           (for-each (lambda (env)
-                      (display-env env))
+                      (display-env env)
+                      (newline))
                     results)
-          (newline) #'(void)))))
+          #'(void)))))
 
 ;; ---------------------------
-;; Resolução de Consultas
+;; Resolução de Consultas (Goals)
 ;; ---------------------------
-;; resolve-query: resolve uma única consulta (um goal)
 (define (resolve-query query env)
   (displayln (format "[DEBUG] Resolvendo consulta: ~a" query))
   (if (null? knowledge-base)
       (begin (displayln "[DEBUG] Base de conhecimento vazia!") '())
       (search-rules query env knowledge-base)))
 
-;; resolve-query-body: resolve uma sequência de subgoals (consulta composta)
 (define (resolve-query-body goals env)
   (displayln (format "[DEBUG] Resolvendo consulta composta: ~a" goals))
   (if (null? goals)
       (list env)
       (let* ([first-goal (car goals)]
-             [first-results (resolve-query first-goal env)])
+             [first-results (search-rules first-goal env knowledge-base)])
         (apply append (map (lambda (env1)
                              (resolve-query-body (cdr goals) env1))
                            first-results)))))
@@ -82,12 +122,13 @@
       (let* ([rule (car rules)]
              [head (clause-head rule)]
              [body (clause-body rule)]
-             [unif (unify query head env)])
+             [unif (unify query head env)]
+             [body-goals (goals->list body)]) ; Garante que o corpo seja uma lista de subgoals
         (displayln (format "[DEBUG] Testando regra: ~a" head))
         (if unif
-            (let ([result (if (null? body)
+            (let ([result (if (null? body-goals)
                               (list unif)
-                              (resolve-query-body body unif))])
+                              (resolve-query-body body-goals unif))])
               (displayln "[DEBUG] Unificação bem-sucedida.")
               (append result (search-rules query env (cdr rules))))
             (search-rules query env (cdr rules))))))
@@ -95,7 +136,6 @@
 ;; ---------------------------
 ;; Unificação de Termos
 ;; ---------------------------
-;; Função walk: obtém a substituição atual de um termo (para variáveis)
 (define (walk term env)
   (if (and (ast:var? term) (assoc term env))
       (walk (cdr (assoc term env)) env)
@@ -117,16 +157,16 @@
 
 (define (unify-args args1 args2 env)
   (displayln "[DEBUG] Unificando argumentos...")
-  (cond
-    [(and (null? args1) (null? args2)) env]
-    [(and (pair? args1) (pair? args2))
-     (let ([new-env (unify (car args1) (car args2) env)])
-       (if new-env
-           (unify-args (cdr args1) (cdr args2) new-env)
-           #f))]
-    [(and (not (null? args1)) (not (null? args2)))
-     (unify args1 args2 env)]
-    [else #f]))
+  (let* ([lst1 (goals->list args1)]
+         [lst2 (goals->list args2)])
+    (cond
+      [(and (null? lst1) (null? lst2)) env]
+      [(and (pair? lst1) (pair? lst2))
+       (let ([new-env (unify (car lst1) (car lst2) env)])
+         (if new-env
+             (unify-args (cdr lst1) (cdr lst2) new-env)
+             #f))]
+      [else #f])))
 
 ;; ---------------------------
 ;; Associação de Variáveis no Ambiente
