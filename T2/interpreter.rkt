@@ -26,16 +26,17 @@
 (define (eval-query program query)
   (load-program program)
   (displayln (format "\n[DEBUG] Iniciando resolução para consulta: ~a" query))
-  (let ([result (resolve-query query '())])
-    (if result
-        (begin
-          (display "True\nSolução: ")
-          (display-env result)
-          (newline)       ; <<< Quebra de linha adicional após a solução
-          #'(void))
+  (let ([results (resolve-query query '())])  ;; Agora pode retornar múltiplas soluções
+    (if (null? results)
         (begin 
-          (display "False\n\n")  ; <<< Quebra de linha dupla para falha
-          #'(void)))))
+          (display "False\n\n") #'(void))
+        (begin
+          (display "True\n\n")
+          (for-each (lambda (env)
+                      (display-env env)
+                      (newline))
+                    results)
+          (newline) #'(void)))))
 
 
 ;; ---------------------------
@@ -65,22 +66,19 @@
 
 (define (extract-name term)
   (cond
-    [(ast:var? term) (ast:var-name term)]   ; Se for variável, pega o nome
-    [(ast:atom? term) (ast:atom-name term)] ; Se for átomo, pega o nome
-    [else term])) ; Caso contrário, retorna o próprio valor
+    [(ast:var? term) (ast:var-name term)]
+    [(ast:atom? term) (ast:atom-name term)]
+    [else term]))
 
 ;; ---------------------------
 ;; Busca por Fatos e Regras (Atualizada)
 ;; ---------------------------
 (define (search-rules query env rules)
   (displayln (format "[DEBUG] Buscando em ~a regra(s)" (length rules)))
-
-
   (cond
     [(null? rules) 
      (displayln "[DEBUG] Nenhuma regra restante!")
-     #f]
-     
+     '()]  ;; Retorna uma lista vazia
     [else
      (let* ([rule (car rules)]
             [head (clause-head rule)]
@@ -88,19 +86,13 @@
             [unif (unify query head env)])
        (displayln (format "[DEBUG] Testando regra: ~a" head))
        (if unif
-           (begin
-             (displayln "[DEBUG] Unificação bem-sucedida!")
-             (if (null? body)
-                 unif
-                 (let ([body-result (resolve-query-body body unif)])
-                   (if body-result 
-                       body-result
-                       (begin
-                         (displayln "[DEBUG] Falha no corpo da regra")
-                         (search-rules query env (cdr rules))))))) ; Fecha o let
-           (begin
-             (displayln "[DEBUG] Unificação falhou")
-             (search-rules query env (cdr rules)))))]))
+           (let ([result (if (null? body)
+                             (list unif)  ;; Se for fato, retorna lista com solução
+                             (resolve-query-body body unif))])
+             (append result (search-rules query env (cdr rules))))
+           (search-rules query env (cdr rules))))]))
+
+
 
 ;; ---------------------------
 ;; Resolução do Corpo da Regra (Versão Final Corrigida)
@@ -108,24 +100,19 @@
 (define (resolve-query-body body env)
   (displayln (format "[DEBUG] Resolvendo corpo da regra: ~a" body))
   (cond
-    ;; Caso base: corpo vazio (improper list)
     [(not (pair? body)) 
-     (displayln "[DEBUG] Único subgoal processado")
-     (resolve-query body env)] ; Processa o único objetivo
-    
-    ;; Caso recursivo: processa primeiro subgoal
+     (displayln "[DEBUG] Processando último subgoal")
+     (resolve-query body env)]  
     [else
-     (let ([first-goal (car body)]) ; Fechamento correto do let aqui <----------
+     (let ([first-goal (car body)])
        (displayln (format "[DEBUG] Processando subgoal: ~a" first-goal))
-       (let ([result (resolve-query first-goal env)])
-         (if result
-             (begin
-               (displayln "[DEBUG] Subgoal satisfeito")
-               ;; Processa o resto do corpo (pode ser improper list)
-               (resolve-query-body (cdr body) result))
-             (begin
-               (displayln "[DEBUG] Subgoal falhou")
-               #f))))]))
+       (let ([results (resolve-query first-goal env)])  ;; Agora pode retornar múltiplas soluções
+         (if (null? results)
+             '()  ;; Se falhar, não há soluções
+             (apply append (map (lambda (new-env)  ;; Gera combinações de soluções
+                                  (resolve-query-body (cdr body) new-env))
+                                results)))))]))  
+
 
 ;; ---------------------------
 ;; Unificação de Termos (Modificado com mais logs)
@@ -144,13 +131,11 @@
                       (extract-name term1) term2))
      (bind-variable term1 term2 env)]
 
-    
     [(var? term2)
      (displayln (format "[DEBUG] Vinculando variável ~a = ~a" 
                       (extract-name term2) term1))
      (bind-variable term2 term1 env)]
 
-    
     [(and (functor? term1) (functor? term2))
      (if (equal? (functor-name term1) (functor-name term2))
          (begin
@@ -160,7 +145,6 @@
            (displayln "[DEBUG] Functores com nomes diferentes")
            #f))]
 
-    
     [else 
      (displayln "[DEBUG] Tipos incompatíveis para unificação")
      #f]))
@@ -194,10 +178,13 @@
 ;; Função para associar variável (Modificado com mais logs)
 ;; ---------------------------
 (define (bind-variable var value env)
-  (displayln (format "[DEBUG] Ambiente atualizado: ~a = ~a" 
-                   (extract-name var) 
-                   value))
-  (cons (cons var value) env))
+  (if (assoc var env)
+      env
+      (begin
+        (displayln (format "[DEBUG] Ambiente atualizado: ~a = ~a" 
+                           (extract-name var) 
+                           value))
+        (cons (cons var value) env))))
 
 ;; ---------------------------
 ;; Predicados Auxiliares (Corrigido)
