@@ -36,8 +36,11 @@
        (if binding
            (values (cdr binding) env)
            (let ([new-var (ast:var (gensym (ast:var-name term)))])
-             (values new-var (cons (cons term new-var) env)))))] ; <<< Fecha o let e o cond
-    [(ast:atom? term) (values term env)] ; Átomos não precisam de renomeação
+             (values new-var (cons (cons term new-var) env)))))]
+    [(ast:unknow-var? term)
+     (let ([new-var (ast:var (gensym '_))])
+       (values new-var env))]
+    [(ast:atom? term) (values term env)]
     [(ast:functor? term)
      (let-values ([(new-args new-env) (rename-term-list (ast:functor-args term) env)])
        (values (ast:functor (ast:functor-name term) new-args) new-env))]
@@ -111,45 +114,16 @@
       (search-rules query env knowledge-base)))
 
 (define (resolve-query-body goals env)
-  (displayln (format "[DEBUG] Resolvendo corpo da regra: ~a" goals))
   (cond
-    ;; Caso base: corpo vazio (improper list)
-    [(null? goals) 
-     (displayln "[DEBUG] Corpo vazio. Retornando ambiente.")
-     (list env)]
-    
-    ;; Caso para desigualdade (neq)
-    [(ast:neq? (if (pair? goals) (car goals) goals)) ; <--- Tratamento de improper list
-     (displayln "[DEBUG] Processando condição de desigualdade...")
-     (let* ([neq-expr (if (pair? goals) (car goals) goals)] ; <--- Safe access
-            [term1 (ast:neq-lterm neq-expr)]
-            [term2 (ast:neq-rterm neq-expr)]
-            [diff-ok? (check-diff env term1 term2)])
-       (displayln (format "[DEBUG] Verificando ~a ≠ ~a no ambiente:" term1 term2))
-       (display-env env)
-       (if diff-ok?
-           (begin
-             (displayln "[DEBUG] Desigualdade satisfeita!")
-             (resolve-query-body (if (pair? goals) (cdr goals) '()) env)) ; <--- Safe cdr
-           (begin
-             (displayln "[DEBUG] Desigualdade falhou!")
-             '())))]
-    
-    ;; Caso padrão para submetas
-    [(pair? goals) ; <--- Garante que goals é um par antes de usar car/cdr
-     (let ([first-goal (car goals)])
-       (displayln (format "[DEBUG] Processando subgoal: ~a" first-goal))
-       (let ([first-results (search-rules first-goal env knowledge-base)])
-         (displayln (format "[DEBUG] Resultados parciais para ~a: ~a" first-goal first-results))
-         (apply append 
-                (map (lambda (env1)
-                       (resolve-query-body (cdr goals) env1))
-                     first-results))))]
-    
-    [else ; Improper list (último elemento não é par)
-     (displayln "[DEBUG] Último elemento do corpo (improper list)")
-     (resolve-query-body (list goals) env)]))
-
+    [(null? goals) (list env)]
+    [(ast:neq? (car goals))
+     (if (check-diff env (ast:neq-lterm (car goals)) (ast:neq-rterm (car goals)))
+         (resolve-query-body (cdr goals) env)
+         '())]
+    [else
+     (append-map (lambda (env1) 
+                   (resolve-query-body (cdr goals) env1))
+                 (search-rules (car goals) env knowledge-base))]))
 ;; ---------------------------
 ;; Busca por Fatos e Regras
 ;; ---------------------------
@@ -157,28 +131,16 @@
 ;; Busca por Fatos e Regras (Versão Corrigida)
 ;; ---------------------------
 (define (search-rules query env rules)
-  (displayln (format "[DEBUG] Buscando em ~a regra(s)" (length rules)))
   (if (null? rules)
-      (begin
-        (displayln "[DEBUG] Nenhuma regra restante!")
-        '())
+      '()
       (let* ([rule (car rules)]
-             [renamed-rule (rename-clause rule)]) ; Renomeia variáveis da regra
-        (displayln (format "[DEBUG] Testando regra: ~a" (clause-head renamed-rule)))
-        (displayln (format "[DEBUG] Corpo da regra: ~a" (clause-body renamed-rule)))
-        (let ([unif (unify query (clause-head renamed-rule) env)])
-          (if unif
-              (begin
-                (displayln "[DEBUG] Unificação bem-sucedida!")
-                (displayln "[DEBUG] Ambiente após unificação:")
-                (display-env unif)
-                (let ([body-results (resolve-query-body (clause-body renamed-rule) unif)])
-                  (displayln (format "[DEBUG] Resultados do corpo: ~a" body-results))
-                  (append body-results (search-rules query env (cdr rules))))) ; Fecha o let e o append
-              (begin
-                (displayln "[DEBUG] Unificação falhou. Próxima regra...")
-                (search-rules query env (cdr rules))))))) ; Fecha o if, let e let*
-)
+             [renamed-rule (rename-clause rule)]
+             [unif (unify query (clause-head renamed-rule) env)])
+        (append
+         (if unif
+             (resolve-query-body (clause-body renamed-rule) unif)
+             '())
+         (search-rules query env (cdr rules))))))
 
 
 ;; ---------------------------
@@ -276,35 +238,39 @@
 ;; ---------------------------
 (define (check-diff env term1 term2)
   (displayln (format "[DEBUG] Verificando desigualdade: ~a ≠ ~a" term1 term2))
-  (let ([val1 (walk term1 env)]
-        [val2 (walk term2 env)])
-    (displayln (format "[DEBUG] Valores substituídos: ~a ≠ ~a" val1 val2))
+  (let* ([val1 (walk term1 env)]
+         [val2 (walk term2 env)])
+    (displayln (format "[DEBUG] Valores após substituição completa: ~a ≠ ~a" val1 val2))
     (not (terms-equal? val1 val2))))
 
-
 (define (terms-equal? t1 t2)
-  (displayln (format "[DEBUG] Comparando termos estruturalmente: ~a vs ~a" t1 t2))
-  (cond
-    [(and (ast:var? t1) (ast:var? t2)) 
-     (eq? t1 t2)]
-    [(and (functor? t1) (functor? t2))
-     (and (equal? (functor-name t1) (functor-name t2))
-          (terms-equal? (functor-args t1) (functor-args t2)))]
-    [else 
-     (equal? t1 t2)]))
-
+  (displayln (format "[DEBUG] Comparando estruturalmente: ~a vs ~a" t1 t2))
+  (let ([t1 (walk t1 '())] ; Força caminhada completa sem ambiente (valores finais)
+        [t2 (walk t2 '())])
+    (cond
+      [(and (ast:var? t1) (ast:var? t2)) (eq? t1 t2)]
+      [(and (ast:functor? t1) (ast:functor? t2))
+       (and (equal? (ast:functor-name t1) (ast:functor-name t2))
+            (andmap terms-equal? 
+                    (ast:functor-args t1) 
+                    (ast:functor-args t2)))]
+      [else (equal? t1 t2)])))
 ;; ---------------------------
 ;; Associação de Variáveis no Ambiente
 ;; ---------------------------
 (define (bind-variable var value env)
-  (let ([binding (assoc var env)])
-    (if binding
-        (if (equal? (cdr binding) value)
-            env
-            #f)
-        (begin
-          (displayln (format "[DEBUG] Associando variável ~a = ~a" var value))
-          (cons (cons var value) env)))))
+  (let ([val (walk value env)])
+    (if (occurs-check var val env)
+        #f
+        (cons (cons var val) env))))
+
+(define (occurs-check var term env)
+  (let ([term (walk term env)])
+    (cond
+      [(eq? var term) #t]
+      [(ast:functor? term)
+       (ormap (lambda (arg) (occurs-check var arg env)) (ast:functor-args term))]
+      [else #f])))
 
 ;; ---------------------------
 ;; Impressão do Ambiente (Melhorada)
